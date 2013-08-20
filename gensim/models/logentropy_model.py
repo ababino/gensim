@@ -54,6 +54,7 @@ class LogEntropyModel(interfaces.TransformationABC):
         self.n_docs = 0
         self.n_words = 0
         self.entr = {}
+        self.glob_freq = {}
         if corpus is not None:
             self.initialize(corpus)
 
@@ -67,14 +68,13 @@ class LogEntropyModel(interfaces.TransformationABC):
         automatically from the constructor.
         """
         logger.info("calculating counts")
-        glob_freq = {}
         glob_num_words, doc_no = 0, -1
         for doc_no, bow in enumerate(corpus):
             if doc_no % 10000 == 0:
                 logger.info("PROGRESS: processing document #%i" % doc_no)
             glob_num_words += len(bow)
             for term_id, term_count in bow:
-                glob_freq[term_id] = glob_freq.get(term_id, 0) + term_count
+                self.glob_freq[term_id] = self.glob_freq.get(term_id, 0) + term_count
 
         # keep some stats about the training corpus
         self.n_docs = doc_no + 1
@@ -83,12 +83,12 @@ class LogEntropyModel(interfaces.TransformationABC):
         # and finally compute the global weights
         logger.info("calculating global log entropy weights for %i "
                      "documents and %i features (%i matrix non-zeros)"
-                     % (self.n_docs, len(glob_freq), self.n_words))
+                     % (self.n_docs, len(self.glob_freq), self.n_words))
         logger.debug('iterating over corpus')
         for doc_no2, bow in enumerate(corpus):
             for key, freq in bow:
-                p = (float(freq) / glob_freq[key]) * math.log(float(freq) /
-                                                              glob_freq[key])
+                p = (float(freq) / self.glob_freq[key]) * math.log(float(freq) /
+                                                              self.glob_freq[key])
                 self.entr[key] = self.entr.get(key, 0.0) + p
         if doc_no2 != doc_no:
             raise ValueError("LogEntropyModel doesn't support generators as training data")
